@@ -1,0 +1,9 @@
+{
+  "name": "ca-chatbot",
+  "version": "1.0.0",
+  "description": "The Capital Acquisition — AI Chatbot System",
+  "private": true,
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0"
+  }
+}
