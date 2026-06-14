@@ -27,6 +27,11 @@
   status = 200
 
 [[redirects]]
+  from = "/chatwoot-webhook"
+  to = "/.netlify/functions/chatwoot-webhook"
+  status = 200
+
+[[redirects]]
   from = "/bot"
   to = "/index.html"
   status = 200
