@@ -5,39 +5,26 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://hrzyuchlqihbdllbcxlh.supabase.co';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhyenl1Y2hscWloYmRsbGJjeGxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzODMwNDUsImV4cCI6MjA5NDk1OTA0NX0.ZwQBHdjGONC_cjk2hSgubp5wW1dcTPy3P7rfILr9Uc4'; // public anon key - safe for client use
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhyenl1Y2hscWloYmRsbGJjeGxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzODMwNDUsImV4cCI6MjA5NDk1OTA0NX0.ZwQBHdjGONC_cjk2hSgubp5wW1dcTPy3P7rfILr9Uc4';
 const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY || '';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+const OR_HEADERS = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENROUTER_KEY}`, 'HTTP-Referer': 'https://thecapitalacquisition.com', 'X-Title': 'CA Chatbot' };
+const OR_MODELS = ['openrouter/free', 'qwen/qwen3-coder:free', 'google/gemma-4-31b-it:free'];
+
 async function callLLM(systemPrompt, messages) {
-    const payload = {
-        model: 'deepseek-v4-flash-free',
-        messages: [{ role: 'system', content: systemPrompt }, ...messages],
-        max_tokens: 500,
-        temperature: 0.7
-    };
-    
-    if (GO_API_KEY) {
-        try {
-            const res = await fetch('https://api.opencode.ai/v1/chat/completions', {
-                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GO_API_KEY}` },
-                body: JSON.stringify(payload)
-            });
-            if (res.ok) { const d = await res.json(); return d.choices?.[0]?.message?.content || ''; }
-        } catch (e) {}
-    }
-    
-    if (OPENROUTER_KEY) {
+    for (const model of OR_MODELS) {
+        if (!OPENROUTER_KEY) break;
         try {
             const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENROUTER_KEY}`, 'HTTP-Referer': SUPABASE_URL, 'X-Title': 'CA Chatbot' },
-                body: JSON.stringify({ ...payload, model: 'qwen/qwen3-coder:free' })
+                method: 'POST', headers: OR_HEADERS,
+                body: JSON.stringify({ model, messages: [{ role: 'system', content: systemPrompt }, ...messages], max_tokens: 500, temperature: 0.7 })
             });
             if (res.ok) { const d = await res.json(); return d.choices?.[0]?.message?.content || ''; }
+            if (res.status === 429) continue;
         } catch (e) {}
     }
-    
     return "Thanks for reaching out! I'm here to help. Could you email your question to hello@thecapitalacquisition.com and our team will get back to you within 4 hours?";
 }
 
