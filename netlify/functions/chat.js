@@ -5,8 +5,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://hrzyuchlqihbdllbcxlh.supabase.co';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
-const GO_API_KEY = process.env.GO_API_KEY || 'sk-mpfhlnxRxol9JQew1hkD5yFS4SZHiw2IpIyHbAUPA4YfqkfmBv2VTgIJNnfxcVWK';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhyenl1Y2hscWloYmRsbGJjeGxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzODMwNDUsImV4cCI6MjA5NDk1OTA0NX0.ZwQBHdjGONC_cjk2hSgubp5wW1dcTPy3P7rfILr9Uc4'; // public anon key - safe for client use
 const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY || '';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
