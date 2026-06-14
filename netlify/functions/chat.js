@@ -64,7 +64,18 @@ async function buildContext(tenantId) {
         products.forEach(p => { prompt += `\n- ${p.name}${p.price ? ' ($' + p.price + ')' : ''}${p.description ? ': ' + p.description : ''}`; });
     }
     
-    prompt += '\n\nRules: Be friendly, warm, and helpful. Use emojis naturally. If you don\'t know something, say so honestly. Never make up specific pricing. Keep responses under 150 words.';
+    // Calendly booking link
+    const CALENDLY_URL = 'https://calendly.com/thecapitalacquisition-info/30min';
+    
+    prompt += `\n\n=== CRITICAL RULES ===`;
+    prompt += `\n1. NEVER reveal any backend, technical, or internal information (no mention of Supabase, APIs, serverless, Netlify, GitHub, databases, or any infrastructure).`;
+    prompt += `\n2. Keep answers simple, friendly, and focused ONLY on what ${t.business_name} offers to clients.`;
+    prompt += `\n3. If a prospect wants to discuss their specific needs, book a call, or learn more about pricing — always invite them to book a free strategy call: ${CALENDLY_URL}`;
+    prompt += `\n4. Be warm and conversational but professional. Use emojis naturally 😊`;
+    prompt += `\n5. If asked about pricing, mention that pricing is customized per project and invite them to book a call for a personalized quote: ${CALENDLY_URL}`;
+    prompt += `\n6. Keep responses concise — under 120 words.`;
+    prompt += `\n7. Never claim to be human. You're an AI assistant for ${t.business_name}.`;
+    prompt += `\n8. Never make up specific dollar amounts or technical specifications.`;
     return prompt;
 }
 
