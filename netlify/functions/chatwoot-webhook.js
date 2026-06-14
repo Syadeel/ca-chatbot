@@ -1,24 +1,14 @@
 /**
  * Chatwoot Webhook Handler — Netlify Serverless Function
- * Ultra-fast version: instant greetings + DeepSeek V4 Flash for AI
+ * Ultra-fast: instant greetings + DeepSeek V4 Flash for AI
  */
-
-// Simple greeting detector - no AI call needed
-const GREETINGS = ['hi', 'hey', 'hello', 'howdy', 'sup', 'good morning', 'good afternoon', 'good evening', 'hey there', 'hi there', 'hello there'];
+const GREETINGS = ['hi','hey','hello','howdy','sup','good morning','good afternoon','good evening','hey there','hi there','hello there'];
 const INSTANT_GREETING = "Hey! How can I help you today?";
 
 const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY || '';
 const CHATWOOT_TOKEN = process.env.CHATWOOT_API_TOKEN || '';
 const CHATWOOT_BASE = process.env.CHATWOOT_BASE_URL || 'https://adeel020-ca-chatwoot.hf.space';
 
-const OR_HEADERS = {
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${OPENROUTER_KEY}`,
-  'HTTP-Referer': 'https://thecapitalacquisition.com',
-  'X-Title': 'CA Chatbot'
-};
-
-// Fastest models first - DeepSeek V4 Flash responds in ~300-500ms
 const OR_MODELS = ['deepseek/deepseek-v4-flash', 'openrouter/free', 'qwen/qwen3-coder:free'];
 
 const CA_KB = `You are the customer support chatbot for Capital Acquisition.
@@ -55,13 +45,14 @@ async function callLLM(messages) {
   for (const model of OR_MODELS) {
     if (!OPENROUTER_KEY) break;
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-      
       const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
-        headers: OR_HEADERS,
-        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENROUTER_KEY}`,
+          'HTTP-Referer': 'https://thecapitalacquisition.com',
+          'X-Title': 'CA Chatbot'
+        },
         body: JSON.stringify({
           model,
           messages: [{ role: 'system', content: CA_KB }, ...messages],
@@ -69,8 +60,6 @@ async function callLLM(messages) {
           temperature: 0.5
         })
       });
-      clearTimeout(timeout);
-      
       if (res.ok) {
         const d = await res.json();
         return d.choices?.[0]?.message?.content || '';
@@ -80,69 +69,59 @@ async function callLLM(messages) {
       console.error('LLM error:', model, e.message);
     }
   }
-  return "Thanks for reaching out! Could you email hello@thecapitalacquisition.com and our team will get back to you?";
+  return '';
+}
+
+async function replyToChatwoot(accountId, conversationId, content) {
+  try {
+    const res = await fetch(`${CHATWOOT_BASE}/api/v1/accounts/${accountId}/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'api_access_token': CHATWOOT_TOKEN },
+      body: JSON.stringify({ content })
+    });
+    if (!res.ok) console.error('Reply failed:', res.status, await res.text());
+  } catch (e) {
+    console.error('Reply error:', e.message);
+  }
 }
 
 exports.handler = async (event) => {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Content-Type': 'application/json'
-  };
-
-  // Keep-warm: GET or POST with {keepalive:true} returns instantly, no processing
-  if (event.httpMethod === 'GET' || event.httpMethod === 'HEAD') {
-    return { statusCode: 200, headers, body: '{"ok":true,"warm":true}' };
-  }
-  
   if (event.httpMethod !== 'POST') {
-    return { statusCode: event.httpMethod === 'OPTIONS' ? 200 : 405, headers, body: '{}' };
+    return { statusCode: event.httpMethod === 'OPTIONS' ? 200 : 405, body: '{}' };
   }
 
   try {
     const payload = JSON.parse(event.body);
     
-    // Keep-warm ping - no processing
-    if (payload.keepalive) {
-      return { statusCode: 200, headers, body: '{"ok":true,"warm":true}' };
-    }
-    if (payload.event !== 'message_created') return { statusCode: 200, headers, body: '{"ok":true}' };
-
-    const sender = payload.sender || {};
-    if (sender.type !== 'Contact') return { statusCode: 200, headers, body: '{"ok":true}' };
+    // Keep-alive check
+    if (payload.keepalive) return { statusCode: 200, body: '{"ok":true}' };
+    if (payload.event !== 'message_created') return { statusCode: 200, body: '{"ok":true}' };
 
     const content = (payload.content || '').trim();
-    if (!content) return { statusCode: 200, headers, body: '{"ok":true}' };
+    const conversationId = payload.conversation?.id;
+    const accountId = payload.account?.id;
 
-    const conversationId = (payload.conversation || {}).id;
-    const accountId = (payload.account || {}).id;
-    if (!conversationId || !accountId) return { statusCode: 200, headers, body: '{"ok":true}' };
+    if (!conversationId || !accountId) return { statusCode: 200, body: '{"ok":true}' };
 
-    // INSTANT GREETING - no AI call, sub-10ms response
-    const isGreeting = GREETINGS.some(g => content.toLowerCase().trim() === g || content.toLowerCase().trim().startsWith(g + ' '));
+    console.log('Msg:', content.slice(0, 50), 'Conv:', conversationId, 'Acct:', accountId);
+
+    // Check for greeting first (instant, no AI)
+    const msg = content.toLowerCase().trim();
+    const isGreeting = GREETINGS.some(g => msg === g || msg.startsWith(g + ' '));
     if (isGreeting) {
-      await fetch(`${CHATWOOT_BASE}/api/v1/accounts/${accountId}/conversations/${conversationId}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'api_access_token': CHATWOOT_TOKEN },
-        body: JSON.stringify({ content: INSTANT_GREETING })
-      });
-      return { statusCode: 200, headers, body: '{"ok":true}' };
+      await replyToChatwoot(accountId, conversationId, INSTANT_GREETING);
+      return { statusCode: 200, body: '{"ok":true}' };
     }
 
-    // AI response for everything else
+    // AI response
     const aiReply = await callLLM([{ role: 'user', content }]);
     if (aiReply) {
-      await fetch(`${CHATWOOT_BASE}/api/v1/accounts/${accountId}/conversations/${conversationId}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'api_access_token': CHATWOOT_TOKEN },
-        body: JSON.stringify({ content: aiReply })
-      });
+      await replyToChatwoot(accountId, conversationId, aiReply);
     }
 
-    return { statusCode: 200, headers, body: '{"ok":true}' };
+    return { statusCode: 200, body: '{"ok":true}' };
   } catch (err) {
     console.error('Webhook error:', err);
-    return { statusCode: 200, headers, body: '{"ok":true}' };
+    return { statusCode: 200, body: '{"ok":true}' };
   }
 };
